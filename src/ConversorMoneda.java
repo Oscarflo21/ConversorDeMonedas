@@ -8,21 +8,14 @@ import java.util.InputMismatchException;
 import java.util.Map;
 import java.util.Scanner;
 import org.json.JSONObject;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 // Clase que contiene la lógica de conversión de moneda y la interacción con la API.
 public class ConversorMoneda {
 
-    // Reemplaza con tu API key. Es importante que este valor sea secreto y no se comparta públicamente.
-    private static final String API_KEY = "effe1240153930679ba99289";
-    // Reemplaza con la URL base de la API que elijas.
-    private static final String API_URL = "https://api.exchangerate-api.com/v4/latest/"; // Ejemplo: ExchangeRate-API
-    // private static final String API_URL = "https://api.currencyapi.com/v3/latest"; // Ejemplo CurrencyAPI
-    // private static final String API_URL = "https://openexchangerates.org/api/latest.json"; // Ejemplo Open Exchange Rates
+    private static final String API_KEY = "effe1240153930679ba99289"; //API_KEY asignada por la API
+    private static final String API_URL = "https://v6.exchangerate-api.com/v6/"; // URL Base para ExchangeRate-API
 
-    // Mapa para almacenar los nombres de las monedas. Esto hace que el código sea más fácil de leer y mantener.
+    // Mapa para almacenar los nombres de las monedas.
     private static final Map<String, String> NOMBRE_MONEDAS = new HashMap<>();
 
     // Inicializa el mapa de nombres de monedas.
@@ -47,7 +40,7 @@ public class ConversorMoneda {
         System.out.println("7) Salir");
     }
 
-    // Método para obtener la opción del usuario con validación de entrada.
+    //Método que valida la entrada del usuario y la opción.
     public static int obtenerOpcion(Scanner scanner) {
         int opcion = -1; // Inicializa con un valor inválido.
         while (opcion < 1 || opcion > 7) {
@@ -58,15 +51,16 @@ public class ConversorMoneda {
                 System.out.println("Entrada inválida. Por favor, ingrese un número del 1 al 7.");
                 scanner.next(); // Limpia la entrada inválida del scanner.
             }
-            if (opcion < 1 || opcion > 7) {
+            if (opcion < 1 || opcion > 7) { //selecciona una de las opciones válidas
                 System.out.println("Opción inválida. Por favor, ingrese un número del 1 al 7.");
             }
         }
         return opcion;
     }
 
+
     // Método para realizar la conversión de moneda.
-    public static void convertir(String monedaOrigen, String monedaDestino, Scanner scanner) {
+    public static void convertir(String monedaOrigen, String monedaDestino, Scanner scanner) { //recibe tres parámetros dos de la selección y uno del usuario
         System.out.print("Ingrese la cantidad en " + obtenerNombreMoneda(monedaOrigen) + ": ");
         double cantidad = scanner.nextDouble(); // Obtiene la cantidad a convertir del usuario.
 
@@ -80,52 +74,38 @@ public class ConversorMoneda {
         }
     }
 
-    // Método para obtener la tasa de cambio de la API.
-    public static double obtenerTasaDeCambio(String monedaOrigen, String monedaDestino) throws IOException {
-        // Construye la URL de la API para la conversión específica.
-        // String urlString = API_URL + "?base=" + monedaOrigen + "&symbols=" + monedaDestino + "&apikey=" + API_KEY; // Para
-        // fixer.io
-        // String urlString = API_URL + "?base_currency=" + monedaOrigen + "&currencies="
-        // + monedaDestino + "&api_key=" + API_KEY; //CurrencyAPI
-        String urlString = API_URL + monedaOrigen;
-        URL url = new URL(urlString); // Crea un objeto URL con la URL construida.
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection(); // Abre una conexión HTTP a la URL.
-        connection.setRequestMethod("GET"); // Establece el método de la petición como GET.
 
-        // Lee la respuesta de la API.
-        StringBuilder response = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                response.append(line); // Agrega cada línea de la respuesta al StringBuilder.
+    // Método para obtener la tasa de cambio entre dos monedas usando la API.
+    // Lanza IOException si ocurre algún error de conexión o si la respuesta es inválida.
+    public static double obtenerTasaDeCambio(String monedaOrigen, String monedaDestino) throws IOException {
+        // Construye la URL completa de la API usando la clave, el código de la moneda origen y destino.
+        String urlString = API_URL + API_KEY + "/pair/" + monedaOrigen + "/" + monedaDestino;
+        URL url = new URL(urlString);  // Crea un objeto URL a partir de la cadena construida.
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();  // Abre una conexión HTTP a la URL
+        connection.setRequestMethod("GET");  // Establece que se hará una solicitud GET (lectura de datos).
+        StringBuilder response = new StringBuilder();  // Crea un StringBuilder (response) para almacenar la respuesta de la API.
+
+        // este bloque lee la respuesta línea por línea desde el flujo de entrada de la conexión
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {  //creo un objeto
+            String line;  //creo una variable para almacenar
+            while ((line = reader.readLine()) != null) { // mientras la variable no sea null ejecutara
+                response.append(line);// Agrega cada línea a la respuesta completa.
             }
         } finally {
-            connection.disconnect(); // Cierra la conexión HTTP.
+            connection.disconnect();// Cierra la conexión después de recibir la respuesta.
         }
 
-        // Parsea la respuesta JSON para obtener la tasa de cambio.
-        JSONObject jsonResponse = new JSONObject(response.toString());
-        // La estructura del JSON depende de la API que uses. Aquí hay ejemplos para algunas APIs comunes.
-        double tasaCambio = 0.0;
-
-        if (API_URL.contains("exchangerate-api")) {
-            JSONObject rates = jsonResponse.getJSONObject("data").getJSONObject(monedaDestino);
-            tasaCambio = rates.getDouble("value");
-        } else if (API_URL.contains("currencyapi")) {
-            tasaCambio = jsonResponse.getJSONObject("data").getJSONObject(monedaDestino).getDouble("value");
-        } else if (API_URL.contains("openexchangerates")) {
-            JSONObject rates = jsonResponse.getJSONObject("rates");
-            tasaCambio = rates.getDouble(monedaDestino);
-        } else {
-            throw new IOException(
-                    "API no soportada o respuesta JSON no reconocida. Por favor, actualice el código para manejar la estructura de la respuesta de la API.");
+        JSONObject jsonResponse = new JSONObject(response.toString());  // Convierte la respuesta JSON en un objeto JSONObject para analizarla.
+        if (!jsonResponse.getString("result").equals("success")) {  // Verifica si el resultado de la API fue exitoso; si no, lanza una excepción.
+            throw new IOException("Error en la respuesta de la API: " + jsonResponse.toString());
         }
-        return tasaCambio;
+        return jsonResponse.getDouble("conversion_rate");  // Extrae y devuelve la tasa de conversión desde el campo "conversion_rate" del Json
     }
+
 
     // Método para obtener el nombre completo de una moneda a partir de su código.
-    public static String obtenerNombreMoneda(String codigoMoneda) {
-        return NOMBRE_MONEDAS.getOrDefault(codigoMoneda, codigoMoneda); // Devuelve el nombre de la moneda o el código si
-        // no se encuentra.
+    public static String obtenerNombreMoneda(String codigoMoneda) { //Recibe el código de la moneda
+        return NOMBRE_MONEDAS.getOrDefault(codigoMoneda, codigoMoneda); // Devuelve el nombre de la moneda o el código si no se encuentra.
     }
 }
+
